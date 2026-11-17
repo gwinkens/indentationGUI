@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (QAbstractScrollArea, QApplication, QCheckBox, QCo
     QMainWindow, QMenu, QMenuBar, QPlainTextEdit,
     QProgressBar, QPushButton, QSizePolicy, QSpacerItem,
     QSpinBox, QTabWidget, QTableWidget, QTableWidgetItem,
-    QTextEdit, QWidget)
+    QTextEdit, QVBoxLayout, QWidget)
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -831,9 +831,21 @@ class Ui_MainWindow(object):
 
         self.gridLayout_2.addWidget(self.OK_path_tabTAF, 5, 2, 1, 1)
 
+        self.verticalLayout_ExportJSON_tabTAF = QVBoxLayout()
+        self.verticalLayout_ExportJSON_tabTAF.setObjectName(u"verticalLayout_ExportJSON_tabTAF")
+        self.pushButton_ExportJSON_tabTAF = QPushButton(self.tabTAF)
+        self.pushButton_ExportJSON_tabTAF.setObjectName(u"pushButton_ExportJSON_tabTAF")
+        self.pushButton_ExportJSON_tabTAF.setMinimumSize(QSize(200, 0))
+        self.pushButton_ExportJSON_tabTAF.setMaximumSize(QSize(200, 16777215))
+
+        self.verticalLayout_ExportJSON_tabTAF.addWidget(self.pushButton_ExportJSON_tabTAF)
+
         self.verticalSpacer_5 = QSpacerItem(20, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
 
-        self.gridLayout_2.addItem(self.verticalSpacer_5, 6, 2, 1, 1)
+        self.verticalLayout_ExportJSON_tabTAF.addItem(self.verticalSpacer_5)
+
+
+        self.gridLayout_2.addLayout(self.verticalLayout_ExportJSON_tabTAF, 6, 2, 1, 1)
 
         self.graphicsView_tab_TipAreaFunction = QTabWidget(self.tabTAF)
         self.graphicsView_tab_TipAreaFunction.setObjectName(u"graphicsView_tab_TipAreaFunction")
@@ -8008,6 +8020,11 @@ class Ui_MainWindow(object):
         self.label_13.setText(QCoreApplication.translate("MainWindow", u"< Force [mN]<", None))
         self.OK_path_tabTAF.setText(QCoreApplication.translate("MainWindow", u"Calcultate\n"
 "Frame Compliance and TAF", None))
+#if QT_CONFIG(tooltip)
+        self.pushButton_ExportJSON_tabTAF.setToolTip(QCoreApplication.translate("MainWindow", u"Export the settings and the results of the last calibration as two JSON files", None))
+#endif // QT_CONFIG(tooltip)
+        self.pushButton_ExportJSON_tabTAF.setText(QCoreApplication.translate("MainWindow", u"Export settings and\n"
+"results (JSON)", None))
         self.checkBox_showThermalDrift_tab_inclusive_frame_stiffness_tabTAF.setText(QCoreApplication.translate("MainWindow", u"show thermal drift", None))
         self.checkBox_showFindSurface_tab_inclusive_frame_stiffness_tabTAF.setText(QCoreApplication.translate("MainWindow", u"show find surface", None))
         self.checkBox_iLHU_inclusive_frame_stiffness_tabTAF.setText(QCoreApplication.translate("MainWindow", u"show the Indentification of Loading-Holding-UnladingStart-UnladingEnd", None))
