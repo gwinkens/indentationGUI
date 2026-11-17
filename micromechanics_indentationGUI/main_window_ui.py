@@ -8018,7 +8018,7 @@ class Ui_MainWindow(object):
         self.groupBox_6.setTitle(QCoreApplication.translate("MainWindow", u"Range for Frame Compliance", None))
         self.label_12.setText(QCoreApplication.translate("MainWindow", u"<Depth [\u00b5m]<", None))
         self.label_13.setText(QCoreApplication.translate("MainWindow", u"< Force [mN]<", None))
-        self.OK_path_tabTAF.setText(QCoreApplication.translate("MainWindow", u"Calcultate\n"
+        self.OK_path_tabTAF.setText(QCoreApplication.translate("MainWindow", u"Calculate\n"
 "Frame Compliance and TAF", None))
 #if QT_CONFIG(tooltip)
         self.pushButton_ExportJSON_tabTAF.setToolTip(QCoreApplication.translate("MainWindow", u"Export the settings and the results of the last calibration as two JSON files", None))

@@ -1,6 +1,8 @@
 """ Module for tools for GUI """
+from pathlib import Path
 import numpy as np
 from PySide6.QtCore import Qt # pylint: disable=no-name-in-module
+from PySide6.QtGui import QColor # pylint: disable=no-name-in-module
 from PySide6.QtWidgets import QFileDialog, QTableWidgetItem # pylint: disable=no-name-in-module
 
 def Select_TypedTest(self,tabName=None): #pylint: disable=no-self-use
@@ -68,6 +70,7 @@ def addFile_tab(self,tabName):
     qtablewidgetitem.setCheckState(Qt.Checked)
     theTableWidget.setVerticalHeaderItem(theRowCount-1, QTableWidgetItem(f"Path{int(theRowCount)}"))
     theTableWidget.setItem(0,theRowCount-1,qtablewidgetitem)
+    checkFile(self, qtablewidgetitem)
 
 def deleteFile_tab(self,tabName):
   """ click "-" Button to delete a file path for tab  """
@@ -152,6 +155,59 @@ def changeFile_tab(self, tabName):
   qtablewidgetitem.setCheckState(Qt.Checked)
   theTableWidget.setVerticalHeaderItem(row, QTableWidgetItem(f"Path{int(row+1)}"))
   theTableWidget.setItem(row, 0, qtablewidgetitem)
+  checkFile(self, qtablewidgetitem)
+
+def readFileSummary(fileName):
+  """
+  read a file like the calculations do to check if it can be used
+
+  Args:
+    fileName (str): path of the file
+
+  Returns:
+    tuple: (success, info, suggestion)
+  """
+  #imported here: WaitingUpgrade_of_micromechanics imports load_depth, which imports this module
+  from ..WaitingUpgrade_of_micromechanics import IndentationXXX #pylint: disable=import-outside-toplevel
+  from ..Tools4LoadingData import Convert2inGUI #pylint: disable=import-outside-toplevel
+  name = Path(fileName).name
+  if Path(fileName).suffix.lower() == '.h5':
+    return False, f"{name} is a cache file created by the GUI.", \
+      'Select the original data file (e.g. .xls or .xlsx); the .h5 file is created from it automatically.'
+  suggestion = 'Check if the file is a supported indentation file (.xls/.xlsx, .zip, .smart500).'
+  try:
+    i = IndentationXXX(fileName=Convert2inGUI([fileName]))
+  except Exception as e: #pylint: disable=broad-except
+    return False, f"{name} could not be read:\n{e}", suggestion
+  testList = list(getattr(i, 'allTestList', []))
+  try:
+    i.datafile.close()
+  except Exception: #pylint: disable=broad-except
+    pass
+  if len(testList) == 0:
+    return False, f"No tests found in {name}.", suggestion
+  return True, f"{name}: {len(testList)} tests ({testList[0]} … {testList[-1]})", ''
+
+def checkFile(self, theItem):
+  """
+  check the file of a file-list item: green background and a summary as tooltip if it can be read,
+  red background and the reason otherwise. Shows the result in a dialog if self is the main window.
+
+  Args:
+    theItem (QTableWidgetItem): item containing the file path
+  """
+  isMainWindow = hasattr(self, 'show_error')
+  if isMainWindow:
+    self.show_wait('GUI is reading the file')
+  success, info, suggestion = readFileSummary(theItem.text())
+  theItem.setBackground(QColor(0, 170, 0, 60) if success else QColor(220, 0, 0, 60))
+  theItem.setToolTip(info)
+  if isMainWindow:
+    if success:
+      self.close_wait(info=f"File read successfully:\n{info}")
+    else:
+      self.close_wait()
+      self.show_error(info, suggestion)
 
 def FilesToDialog_tab(self):
   """ + "select" Button to select a file path for tab  """
