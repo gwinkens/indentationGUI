@@ -1,5 +1,6 @@
 """ Module for tools for hdf5 """
 import warnings
+from pathlib import Path
 
 import pandas as pd
 from tables import NaturalNameWarning
@@ -37,7 +38,7 @@ def convertXLSXtoHDF5(XLSX_File,progressbar=None):
   print('XLSX_File!!!!!!!!!!!!!!!',XLSX_File)
   df = pd.ExcelFile(XLSX_File)
   print (df.sheet_names)
-  with pd.HDFStore(f"{XLSX_File[:-5]}.h5", mode='w', complevel=9, complib='zlib') as store:
+  with pd.HDFStore(str(Path(XLSX_File).with_suffix('.h5')), mode='w', complevel=9, complib='zlib') as store:
     for idx, sheet_name in enumerate(df.sheet_names):
       data = df.parse(sheet_name)
       data = _normalize_excel_sheet_for_hdf5(data)

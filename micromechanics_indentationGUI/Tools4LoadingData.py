@@ -15,7 +15,7 @@ def Convert2inGUI(fileNameList):
   Supported formats:
   - .zip → processed with DataTransformation_MicroMaterials
   - .smart500 → processed with DataTransformation_Surface_Smart_500
-  - .xlsx → used directly
+  - .xlsx, .xls → used directly
 
   If multiple files are provided, they are merged using merge_excels().
 
@@ -32,7 +32,7 @@ def Convert2inGUI(fileNameList):
         DataTransformation_MicroMaterials(fileName=file)
       elif '.smart500' in file:
         DataTransformation_Surface_Smart_500(fileName=file)
-      elif '.xlsx' in file:
+      elif '.xls' in file:   #also matches .xlsx
         OutputFileName = file_path
     fileNameList[i] = str(OutputFileName)
   if len(fileNameList)==1:

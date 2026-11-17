@@ -395,7 +395,7 @@ class IndentationXXX(indentation.Indentation):
       if self.output['progressBar'] is not None:
         self.output['progressBar'](100,'convert')  # pylint: disable=not-callable
     except:
-      if '.xlsx' in fileName:
+      if '.xls' in fileName:   #also matches .xlsx
         convertXLSXtoHDF5(XLSX_File=fileName,progressbar=self.output['progressBar'])
         # read converted .hf5
         self.datafile = pd.HDFStore(f"{thePath}{slash}{theFile}.h5", mode='r') # pylint: disable=attribute-defined-outside-init
@@ -432,6 +432,7 @@ class IndentationXXX(indentation.Indentation):
         self.output['verbose']>0:
       print("*WARNING*: Poisson Ratio different than in file.",self.nuMat,self.metaVendor['Poissons Ratio'])
     tagged = []
+    loadOnSample = None  #vendor-corrected load; only used if raw load cannot be corrected
     code = {
           # "Load On Sample":"p", "Force On Surface":"p", "LOAD":"p"\ # !!!!!!
           "Load":"p", "LOAD":"p", "Load on Sample":"p"\
@@ -473,6 +474,8 @@ class IndentationXXX(indentation.Indentation):
             else:
               if self.output['verbose']>2:
                 print(f" *** {cell:<30} NOT USED")
+            if cell == "Load On Sample":
+              loadOnSample = cell
             if "Harmonic" in cell or "Dyn. Frequency" in cell or "STIFFNESS" in cell or "Dynamic Contact Stiffness" in cell: #!!!!!!
               self.method = Method.CSM # pylint: disable=attribute-defined-outside-init
           #reset to ensure default values are set
@@ -482,6 +485,10 @@ class IndentationXXX(indentation.Indentation):
           #if self.output['verbose']: print("   Found column names: ",sorted(self.indicies))
       if "Tagged" in dfName: tagged.append(dfName)
     if len(tagged)>0 and self.output['verbose']>1: print("Tagged ",tagged)
+    if "p" not in self.indicies and "slopeSupport" not in self.indicies and loadOnSample is not None:
+      #without "Support Spring Stiffness" the raw load cannot be corrected (e.g. newer Keysight exports)
+      self.indicies['p'] = loadOnSample
+      print(f"*WARNING*: INDENTATION: no spring stiffness found, '{loadOnSample}' is used as load")
     if "t" not in self.indicies or "p" not in self.indicies or \
       "h" not in self.indicies:
       print("*WARNING*: INDENTATION: Some index is missing (t,p,h) should be there")
@@ -492,14 +499,8 @@ class IndentationXXX(indentation.Indentation):
         if "hRaw" not in self.indicies: #!!!!!!
           print ("*WARNING*: INDENTATION: hRaw, which is necessary to calculate load, cannot be found!") #!!!!!!
     self.metaUser['measurementType'] = 'MTS, Agilent Indentation XLS'
-    #rearrange the testList
-    TestNumber_collect=[]
-    for _, theTest in enumerate(self.testList):
-      TestNumber_collect.append(int(theTest[5:]))
-    TestNumber_collect.sort()
-    self.testList = [] # pylint: disable=attribute-defined-outside-init
-    for theTest in TestNumber_collect:
-      self.testList.append(f"Test {theTest}")
+    #rearrange the testList by test number; keep the sheet names as they are (e.g. "Test 008")
+    self.testList.sort(key=lambda theTest: int(theTest[5:]))
     #define allTestList
     self.allTestList =  list(self.testList) # pylint: disable=attribute-defined-outside-init
     print(self.allTestList)
