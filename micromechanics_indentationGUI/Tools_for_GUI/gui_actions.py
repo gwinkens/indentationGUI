@@ -226,3 +226,16 @@ def FilesToMainWindow_tab(self):
     h_item = theTableWidget_INPUT.horizontalHeaderItem(j)
     header_labels.append(h_item.text() if h_item else "")
   Widget.setHorizontalHeaderLabels(header_labels)
+
+def selectedTestItems(theTableWidget):
+  """
+  test-name items (column 0) of all rows with at least one selected cell
+
+  Args:
+    theTableWidget (QTableWidget): the table listing the tests
+
+  Returns:
+    list: one QTableWidgetItem per selected row, sorted by row
+  """
+  rows = sorted({item.row() for item in theTableWidget.selectedItems()})
+  return [theTableWidget.item(row, 0) for row in rows]

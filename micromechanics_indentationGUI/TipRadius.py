@@ -8,6 +8,7 @@ from PySide6.QtGui import QColor # pylint: disable=no-name-in-module
 from scipy.optimize import curve_fit
 from .AnalysePopIn import Hertzian_contact_funct
 from .WaitingUpgrade_of_micromechanics import IndentationXXX
+from .Tools_for_GUI.gui_actions import selectedTestItems
 
 def Calculate_TipRadius(self): #pylint: disable=too-many-locals
   """ Graphical user interface calculate tip radius """
@@ -250,7 +251,7 @@ def plot_Hertzian_fitting(self,tabName):
   #read static canvas
   static_canvas=eval(f"self.static_canvas_HertzianFitting_{tabName}") # pylint: disable=eval-used
   #read inputs from GUI
-  selectedTests=eval(f"self.ui.tableWidget_{tabName}.selectedItems()") # pylint: disable=eval-used
+  selectedTests = selectedTestItems(getattr(self.ui, f"tableWidget_{tabName}"))
   #plot the Hertzian fitting of the seclected tests
   plot_with_Label=True
   for Test in selectedTests:

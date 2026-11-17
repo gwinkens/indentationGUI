@@ -6,6 +6,7 @@ import matplotlib.pylab as plt
 from PySide6.QtGui import QCursor, QAction, QKeySequence, QShortcut, QIcon # pylint: disable=no-name-in-module
 from PySide6.QtWidgets import QMenu, QTableWidgetItem # pylint: disable=no-name-in-module
 from .CorrectThermalDrift import correctThermalDrift
+from .Tools_for_GUI.gui_actions import selectedTestItems
 
 def set_aspectRatio(event_ax=None,ax=None,ratio=0.618):
   """
@@ -48,7 +49,7 @@ def plot_load_depth(self,tabName,SimplePlot=False,If_inclusive_frameStiffness='i
   #read static canvas
   static_canvas = getattr(self, f"static_canvas_load_depth_tab_{If_inclusive_frameStiffness}_frame_stiffness_{tabName}")
   #read inputs from GUI
-  selectedTests = getattr(self.ui, f"tableWidget_{tabName}").selectedItems()
+  selectedTests = selectedTestItems(getattr(self.ui, f"tableWidget_{tabName}"))
   #read decimation factor for big data
   try:
     DecreaseDataDensity = getattr(self.ui, f"spinBox_DecreaseDataDensity_{tabName}").value()

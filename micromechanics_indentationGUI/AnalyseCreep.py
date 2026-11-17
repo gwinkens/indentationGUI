@@ -7,6 +7,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 import matplotlib.pylab as plt
 from .load_depth import pick
+from .Tools_for_GUI.gui_actions import selectedTestItems
 from .CorrectThermalDrift import correctThermalDrift, correctThermalDrift_useFunction, correctThermalDrift_assumingConstantE
 
 def plot_load_depth_time(self,tabName,If_inclusive_frameStiffness='inclusive'):
@@ -32,7 +33,7 @@ def plot_load_depth_time(self,tabName,If_inclusive_frameStiffness='inclusive'):
   #read static canvas
   static_canvas = getattr(self, f"static_canvas_load_depth_time_tab_{If_inclusive_frameStiffness}_frame_stiffness_{tabName}")
   #read inputs from GUI
-  selectedTests = getattr(self.ui, f"tableWidget_{tabName}").selectedItems()
+  selectedTests = selectedTestItems(getattr(self.ui, f"tableWidget_{tabName}"))
   progressbar = getattr(self.ui, f"progressBar_DepthTime_{tabName}")
   progressbar.setValue(0)
   Poisson = self.ui.doubleSpinBox_Poisson_tabCreep.value()
