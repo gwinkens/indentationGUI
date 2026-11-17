@@ -1,12 +1,17 @@
 #pylint: disable=possibly-used-before-assignment, used-before-assignment
 
 """ Graphical user interface to calibrate tip area function """
+import json
+from datetime import datetime
+from importlib.metadata import version, PackageNotFoundError
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import binned_statistic
 from micromechanics import indentation
 from PySide6.QtCore import Qt # pylint: disable=no-name-in-module
-from PySide6.QtWidgets import QApplication, QTableWidgetItem # pylint: disable=no-name-in-module
+from PySide6.QtWidgets import QApplication, QTableWidgetItem, QFileDialog # pylint: disable=no-name-in-module
+from . import __version__
 from .WaitingUpgrade_of_micromechanics import IndentationXXX
 from .Tools4LoadingData import read_file_list, Convert2inGUI
 from .load_depth import pick
@@ -79,6 +84,7 @@ def click_OK_calibration(self): #pylint: disable=too-many-locals
   #open waiting dialog
   self.show_wait('GUI is reading the file')
   #Reading Inputs
+  inputFiles = list(fileNameList) #Convert2inGUI replaces the entries of fileNameList
   try:
     print(fileNameList)
     fileName = Convert2inGUI(fileNameList)
@@ -174,6 +180,61 @@ def click_OK_calibration(self): #pylint: disable=too-many-locals
     TipType='Sphere'
   elif Index_TipType==2:
     TipType='Sphere+Cone'
+  #snapshot of the settings used for this calibration (exported by export_TAF_json)
+  self.settings_tabTAF = {
+    'software': software_info(),
+    'calibrated_at': datetime.now().astimezone().isoformat(timespec='seconds'),
+    'files': inputFiles,
+    'tests_used': list(i.allTestList),
+    'tests_not_used': [theTest for theTest in OriginalAlltest if theTest not in i.allTestList],
+    'measurement_method': i.method.name,
+    'calculation_method': ' '.join(self.ui.comboBox_CalculationMethod_tabTAF.currentText().split()),
+    'sample': {
+      'material_name': self.ui.lineEdit_MaterialName_tabTAF.text().strip(),
+      'youngs_modulus_GPa': E_target,
+      'poissons_ratio': Poisson,
+      },
+    'tip': {
+      'name': self.ui.lineEdit_TipName_tabTAF.text().strip(),
+      'youngs_modulus_GPa': E_Tip,
+      'poissons_ratio': Poisson_Tip,
+      'geometry': TipType,
+      'sphere_radius_um': Radius_Sphere,
+      'cone_half_included_angle_deg': half_includedAngle_Cone,
+      },
+    'tip_area_function_fit': {
+      'number_of_terms': number_of_TAFterms,
+      'terms_greater_than_zero': IfTermsGreaterThanZero,
+      'min_contact_depth_um': minhc_Tip,
+      'max_contact_depth_um': maxhc_Tip,
+      },
+    'frame_compliance_fit': {
+      'min_depth_um': critMinDepthStiffness,
+      'max_depth_um': critMaxDepthStiffness,
+      'min_force_mN': critMinForceStiffness,
+      'max_force_mN': critMaxForceStiffness,
+      },
+    'surface_detection': {
+      'use_dPdh_threshold': UsingRate2findSurface,
+      'dPdh_threshold_mN_per_um': Rate2findSurface,
+      'median_filter_size': DataFilterSize,
+      'use_surface_index_first': UsingSurfaceIndex,
+      'surface_index': {theTest: int(index) for theTest, index in i.surface['surfaceIdx'].items()},
+      },
+    'load_hold_unload_detection': {
+      'unloading_fit_start_fraction_of_Pmax': unloaPMax,
+      'unloading_fit_end_fraction_of_Pmax': unloaPMin,
+      'dPdt_noise_threshold_mN_per_s': relForceRateNoise,
+      'max_fluctuation_size': max_size_fluctuation,
+      },
+    'thermal_drift_correction': {
+      'post_test': correctDrift_Post,
+      'post_test_data_range_percent': Range_correctDrift_Post,
+      'pre_test': correctDrift_Pre,
+      'pre_test_data_range_percent': Range_correctDrift_Pre,
+      },
+    }
+  self.results_tabTAF = None
   frameCompliance_collect = None
   if Index_CalculationMethod == 0: # assume constant Hardness and Modulus (Eq.(24), Oliver 2004)
     i.restartFile()
@@ -237,11 +298,16 @@ def click_OK_calibration(self): #pylint: disable=too-many-locals
   tableWidget=self.ui.tableWidget_tabTAF
   tableWidget.setRowCount(len(OriginalAlltest))
   k_frameCompliance_collect=0
+  testResults = []
   for k, theTest in enumerate(OriginalAlltest):
     qtablewidgetitem=QTableWidgetItem(theTest)
+    testResults.append({'name': theTest, 'used': theTest in i.allTestList,
+                        'analysed_successfully': theTest in i.output['successTest'],
+                        'frame_compliance_um_per_mN': None})
     if theTest in i.allTestList:
       try:
         tableWidget.setItem(k,3,QTableWidgetItem(f"{frameCompliance_collect[k_frameCompliance_collect]:.10f}"))
+        testResults[-1]['frame_compliance_um_per_mN'] = float(frameCompliance_collect[k_frameCompliance_collect])
       except:
         tableWidget.setItem(k,3,QTableWidgetItem('None'))
       k_frameCompliance_collect += 1
@@ -264,12 +330,64 @@ def click_OK_calibration(self): #pylint: disable=too-many-locals
   for j in range(number_of_TAFterms):
     lineEdit = eval(f"self.ui.lineEdit_TAF{j+1}_tabTAF") # pylint: disable = eval-used
     lineEdit.setText(f"{i.tip.prefactors[j]:.10f}")
+  #snapshot of the results (exported by export_TAF_json)
+  self.results_tabTAF = {
+    'software': self.settings_tabTAF['software'],
+    'calibrated_at': self.settings_tabTAF['calibrated_at'],
+    'frame_compliance_um_per_mN': float(i.tip.compliance),
+    'frame_stiffness_mN_per_um': float(1/i.tip.compliance),
+    'tip_area_function': {
+      'type': i.tip.prefactors[-1],
+      'formula': 'Ac = sum_j C_j * hc^(2/2^j), j = 0, 1, 2, ...' + (' with hc -> hc + offset' if i.tip.prefactors[-1]=='isoPlusConstant' else ''),
+      'units': 'hc [nm], Ac [nm^2]',
+      'coefficients': [float(term) for term in i.tip.prefactors[:number_of_TAFterms]],
+      },
+    'tests': testResults,
+    }
+  if i.tip.prefactors[-1]=='isoPlusConstant':
+    self.results_tabTAF['tip_area_function']['offset_nm'] = float(i.tip.prefactors[-2])
   #select the test 1 and run plot load-depth curve
   item = self.ui.tableWidget_tabTAF.item(0, 0)
   self.ui.tableWidget_tabTAF.setCurrentItem(item)
   self.plot_load_depth(tabName='tabTAF',SimplePlot=True)
   #close waiting dialog
   self.close_wait(info='Calculation of Tip Area Function is finished!')
+
+def software_info():
+  """ names and versions of the software used for the calibration """
+  try:
+    micromechanicsVersion = version('micromechanics')
+  except PackageNotFoundError:
+    micromechanicsVersion = None
+  return {'name': 'micromechanics-indentationGUI', 'version': __version__, 'micromechanics_version': micromechanicsVersion}
+
+def export_TAF_json(self):
+  """
+  export the settings and the results of the last calibration of the tip area function
+  as two json-files: <name>_settings.json and <name>_results.json
+  """
+  if getattr(self, 'results_tabTAF', None) is None:
+    self.show_error('No results of a calibration to export.', 'Calculate the frame compliance and TAF first.')
+    return
+  defaultName = 'TAF.json'
+  if self.settings_tabTAF['files']:
+    firstFile = Path(self.settings_tabTAF['files'][0])
+    defaultName = str(firstFile.with_name(f"{firstFile.stem}_TAF.json"))
+  fileName = QFileDialog.getSaveFileName(self, 'Export settings and results', defaultName, 'JSON (*.json)')[0]
+  if not fileName:
+    return
+  basePath = Path(fileName)
+  if basePath.suffix.lower() == '.json':
+    basePath = basePath.with_suffix('')
+  try:
+    for kind, content in (('settings', self.settings_tabTAF), ('results', self.results_tabTAF)):
+      with open(f"{basePath}_{kind}.json", 'w', encoding='utf-8') as fOut:
+        json.dump(content, fOut, indent=2, ensure_ascii=False)
+  except OSError as e:
+    self.show_error(str(e), 'Check if the folder exists and is writable.')
+    return
+  self.show_wait()
+  self.close_wait(info=f"Exported to\n{basePath}_settings.json\n{basePath}_results.json")
 
 def plot_TAF(self,hc,Ac,DepthStep4UniformDepth = 0.01):
   """

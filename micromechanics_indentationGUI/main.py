@@ -106,7 +106,7 @@ class MainWindow(QMainWindow): #pylint: disable=too-many-public-methods
   from .AnalysePopIn import Analyse_PopIn
   from .CalculateHardnessModulus import Calculate_Hardness_Modulus
   from .CalculateCreepRate import Calculate_CreepRate
-  from .CalibrateTAF import click_OK_calibration, plot_TAF, plot_Hardness_Modulus_tabTAF, plot_weight_tabTAF
+  from .CalibrateTAF import click_OK_calibration, plot_TAF, plot_Hardness_Modulus_tabTAF, plot_weight_tabTAF, export_TAF_json
   from .Classification import Classification_HE, PlotMappingWithoutClustering, PlotMappingAfterClustering
   from .FrameStiffness import FrameStiffness
   from .load_depth import plot_load_depth, set_aspectRatio, setAsContactSurface, right_click_set_ContactSurface
@@ -230,6 +230,7 @@ class MainWindow(QMainWindow): #pylint: disable=too-many-public-methods
     self.ui.pushButton_deleteFile_tabTAF.clicked.connect(lambda: self.deleteFile_tab(tabName='tabTAF'))
     self.ui.pushButton_changeFile_tabTAF.clicked.connect(lambda: self.changeFile_tab(tabName='tabTAF'))
     self.ui.OK_path_tabTAF.clicked.connect(self.click_OK_calibration)
+    self.ui.pushButton_ExportJSON_tabTAF.clicked.connect(self.export_TAF_json)
     self.ui.pushButton_plot_chosen_test_tab_inclusive_frame_stiffness.clicked.connect(lambda: self.plot_load_depth(tabName='tabTAF'))
     self.ui.pushButton_plot_chosen_test_tab_exclusive_frame_stiffness.clicked.connect(lambda: self.plot_load_depth(tabName='tabTAF', If_inclusive_frameStiffness='exclusive'))
     self.ui.pushButton_SelectAll_tabTAF.clicked.connect(lambda: self.click_pushButton_SelectAll(tabName='tabTAF'))
