@@ -1601,11 +1601,11 @@ Frame Compliance and TAF</string>
                </size>
               </property>
               <property name="toolTip">
-               <string>Export the settings and the results of the last calibration as two JSON files</string>
+               <string>Export the settings and the results of the last calibration as two JSON files and the load-depth, frame compliance and tip area function plots as PNG files</string>
               </property>
               <property name="text">
-               <string>Export settings and
-results (JSON)</string>
+               <string>Export settings,
+results and plots</string>
               </property>
              </widget>
             </item>

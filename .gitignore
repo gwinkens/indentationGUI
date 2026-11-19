@@ -128,3 +128,4 @@ dmypy.json
 # Pyre type checker
 .pyre/
 **/RecentFiles.txt
+micromechanics_indentationGUI/Examples/Example1/FusedSilica_tabHE_output.h5

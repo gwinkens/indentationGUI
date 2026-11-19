@@ -71,6 +71,7 @@ def addFile_tab(self,tabName):
     theTableWidget.setVerticalHeaderItem(theRowCount-1, QTableWidgetItem(f"Path{int(theRowCount)}"))
     theTableWidget.setItem(0,theRowCount-1,qtablewidgetitem)
     checkFile(self, qtablewidgetitem)
+    refreshTestList(theTableWidget)
 
 def deleteFile_tab(self,tabName):
   """ click "-" Button to delete a file path for tab  """
@@ -88,6 +89,7 @@ def deleteFile_tab(self,tabName):
     theTableWidget.removeRow(row)
   for i in range(theTableWidget.rowCount()):
     theTableWidget.setVerticalHeaderItem(i, QTableWidgetItem(f"Path{int(i+1)}"))
+  refreshTestList(theTableWidget)
 
 def MoveFileUp_tab(self,tabName):
   """ click "up" Button to move up a file path  """
@@ -156,6 +158,81 @@ def changeFile_tab(self, tabName):
   theTableWidget.setVerticalHeaderItem(row, QTableWidgetItem(f"Path{int(row+1)}"))
   theTableWidget.setItem(row, 0, qtablewidgetitem)
   checkFile(self, qtablewidgetitem)
+  refreshTestList(theTableWidget)
+
+def loadIndentation(fileNameList):
+  """
+  read the files like the calculations do
+
+  Args:
+    fileNameList (list): paths of the files; several files are merged as in the calculations
+
+  Returns:
+    IndentationXXX: the indentation data (datafile is open)
+
+  Raises:
+    Exception: if the files cannot be read
+  """
+  #imported here: WaitingUpgrade_of_micromechanics imports load_depth, which imports this module
+  from ..WaitingUpgrade_of_micromechanics import IndentationXXX #pylint: disable=import-outside-toplevel
+  from ..Tools4LoadingData import Convert2inGUI #pylint: disable=import-outside-toplevel
+  return IndentationXXX(fileName=Convert2inGUI(list(fileNameList)))
+
+def readTestList(fileNameList):
+  """
+  read the files like the calculations do and return the names of their tests
+
+  Args:
+    fileNameList (list): paths of the files; several files are merged as in the calculations
+
+  Returns:
+    list: names of the tests
+
+  Raises:
+    Exception: if the files cannot be read
+  """
+  i = loadIndentation(fileNameList)
+  testList = list(getattr(i, 'allTestList', []))
+  try:
+    i.datafile.close()
+  except Exception: #pylint: disable=broad-except
+    pass
+  return testList
+
+def refreshTestList(theTableWidget):
+  """
+  list the tests of the checked file of a file list in the test list of the same tab (all tests checked)
+  and keep the data as i_{tabName}, so that tests can be plotted before the calculation.
+  With several checked files the test list is only cleared, since merging is done by the calculation.
+
+  Args:
+    theTableWidget (QTableWidget): the file list, i.e. tableWidget_path_{tabName} of the main window
+  """
+  from ..Tools4LoadingData import read_file_list #pylint: disable=import-outside-toplevel
+  mainWindow = theTableWidget.window()
+  tabName = theTableWidget.objectName().removeprefix('tableWidget_path_')
+  testTable = getattr(mainWindow.ui, f"tableWidget_{tabName}", None)
+  if tabName == theTableWidget.objectName() or tabName == 'tabClassification' or testTable is None:
+    return #not a file list of the main window or no test list of this kind
+  fileNameList = read_file_list(theTableWidget)
+  testList = []
+  if len(fileNameList) == 1:
+    try:
+      i = loadIndentation(fileNameList)
+      testList = list(getattr(i, 'allTestList', []))
+    except Exception: #pylint: disable=broad-except
+      pass
+    if testList:
+      #prepared as in the calculations
+      i.parameters_for_GUI()
+      i.surface['surfaceIdx'] = {}
+      setattr(mainWindow, f"i_{tabName}", i)
+  testTable.clearContents()
+  testTable.setRowCount(len(testList))
+  for k, theTest in enumerate(testList):
+    qtablewidgetitem = QTableWidgetItem(theTest)
+    qtablewidgetitem.setCheckState(Qt.Checked)
+    testTable.setItem(k, 0, qtablewidgetitem)
 
 def readFileSummary(fileName):
   """
@@ -167,23 +244,15 @@ def readFileSummary(fileName):
   Returns:
     tuple: (success, info, suggestion)
   """
-  #imported here: WaitingUpgrade_of_micromechanics imports load_depth, which imports this module
-  from ..WaitingUpgrade_of_micromechanics import IndentationXXX #pylint: disable=import-outside-toplevel
-  from ..Tools4LoadingData import Convert2inGUI #pylint: disable=import-outside-toplevel
   name = Path(fileName).name
   if Path(fileName).suffix.lower() == '.h5':
     return False, f"{name} is a cache file created by the GUI.", \
       'Select the original data file (e.g. .xls or .xlsx); the .h5 file is created from it automatically.'
   suggestion = 'Check if the file is a supported indentation file (.xls/.xlsx, .zip, .smart500).'
   try:
-    i = IndentationXXX(fileName=Convert2inGUI([fileName]))
+    testList = readTestList([fileName])
   except Exception as e: #pylint: disable=broad-except
     return False, f"{name} could not be read:\n{e}", suggestion
-  testList = list(getattr(i, 'allTestList', []))
-  try:
-    i.datafile.close()
-  except Exception: #pylint: disable=broad-except
-    pass
   if len(testList) == 0:
     return False, f"No tests found in {name}.", suggestion
   return True, f"{name}: {len(testList)} tests ({testList[0]} … {testList[-1]})", ''
@@ -282,6 +351,8 @@ def FilesToMainWindow_tab(self):
     h_item = theTableWidget_INPUT.horizontalHeaderItem(j)
     header_labels.append(h_item.text() if h_item else "")
   Widget.setHorizontalHeaderLabels(header_labels)
+  if IsPath:
+    refreshTestList(Widget)
 
 def selectedTestItems(theTableWidget):
   """

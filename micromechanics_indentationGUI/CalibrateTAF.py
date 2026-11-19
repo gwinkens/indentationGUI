@@ -364,7 +364,8 @@ def software_info():
 def export_TAF_json(self):
   """
   export the settings and the results of the last calibration of the tip area function
-  as two json-files: <name>_settings.json and <name>_results.json
+  as two json-files: <name>_settings.json and <name>_results.json, and the plots of
+  load-depth, frame compliance and tip area function as png-files (as currently shown)
   """
   if getattr(self, 'results_tabTAF', None) is None:
     self.show_error('No results of a calibration to export.', 'Calculate the frame compliance and TAF first.')
@@ -379,15 +380,25 @@ def export_TAF_json(self):
   basePath = Path(fileName)
   if basePath.suffix.lower() == '.json':
     basePath = basePath.with_suffix('')
+  plots = {
+    'load_depth': self.static_canvas_load_depth_tab_inclusive_frame_stiffness_tabTAF,
+    'frame_compliance': self.static_canvas_FrameStiffness_tabTAF,
+    'tip_area_function': self.static_canvas_TAF_tabTAF,
+    }
+  exportedFiles = []
   try:
     for kind, content in (('settings', self.settings_tabTAF), ('results', self.results_tabTAF)):
       with open(f"{basePath}_{kind}.json", 'w', encoding='utf-8') as fOut:
         json.dump(content, fOut, indent=2, ensure_ascii=False)
+      exportedFiles.append(f"{basePath}_{kind}.json")
+    for kind, canvas in plots.items():
+      canvas.figure.savefig(f"{basePath}_{kind}.png", dpi=300)
+      exportedFiles.append(f"{basePath}_{kind}.png")
   except OSError as e:
     self.show_error(str(e), 'Check if the folder exists and is writable.')
     return
   self.show_wait()
-  self.close_wait(info=f"Exported to\n{basePath}_settings.json\n{basePath}_results.json")
+  self.close_wait(info='Exported to\n' + '\n'.join(exportedFiles))
 
 def plot_TAF(self,hc,Ac,DepthStep4UniformDepth = 0.01):
   """

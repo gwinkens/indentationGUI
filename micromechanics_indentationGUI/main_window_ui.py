@@ -8021,10 +8021,10 @@ class Ui_MainWindow(object):
         self.OK_path_tabTAF.setText(QCoreApplication.translate("MainWindow", u"Calculate\n"
 "Frame Compliance and TAF", None))
 #if QT_CONFIG(tooltip)
-        self.pushButton_ExportJSON_tabTAF.setToolTip(QCoreApplication.translate("MainWindow", u"Export the settings and the results of the last calibration as two JSON files", None))
+        self.pushButton_ExportJSON_tabTAF.setToolTip(QCoreApplication.translate("MainWindow", u"Export the settings and the results of the last calibration as two JSON files and the load-depth, frame compliance and tip area function plots as PNG files", None))
 #endif // QT_CONFIG(tooltip)
-        self.pushButton_ExportJSON_tabTAF.setText(QCoreApplication.translate("MainWindow", u"Export settings and\n"
-"results (JSON)", None))
+        self.pushButton_ExportJSON_tabTAF.setText(QCoreApplication.translate("MainWindow", u"Export settings,\n"
+"results and plots", None))
         self.checkBox_showThermalDrift_tab_inclusive_frame_stiffness_tabTAF.setText(QCoreApplication.translate("MainWindow", u"show thermal drift", None))
         self.checkBox_showFindSurface_tab_inclusive_frame_stiffness_tabTAF.setText(QCoreApplication.translate("MainWindow", u"show find surface", None))
         self.checkBox_iLHU_inclusive_frame_stiffness_tabTAF.setText(QCoreApplication.translate("MainWindow", u"show the Indentification of Loading-Holding-UnladingStart-UnladingEnd", None))

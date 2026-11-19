@@ -39,6 +39,11 @@ def Convert2inGUI(fileNameList):
     fileName = fileNameList[0]
   else:
     fileName = merge_excels(fileNameList)
+    #remove the hdf5-cache of a previous merge, otherwise the old tests are read
+    try:
+      Path(fileName).with_suffix('.h5').unlink(missing_ok=True)
+    except OSError:
+      pass
   return fileName
 
 def merge_excels(files_list):
@@ -89,7 +94,7 @@ def merge_excels(files_list):
         [[""] + list(first_units)], columns=["Path"] + first_cols
       )
       pd.concat([units_df] + parts, ignore_index=True).to_excel(
-        w, "Results", index=False
+        w, sheet_name="Results", index=False
       )
     # ---- Test sheets (independent, renamed) ----
     t = 0
@@ -118,7 +123,7 @@ def merge_excels(files_list):
         units_df = pd.DataFrame([[""] + list(units)], columns=["Path"] + cols)
         t += 1
         pd.concat([units_df, data], ignore_index=True).to_excel(
-          w, f"Test {t}", index=False
+          w, sheet_name=f"Test {t}", index=False
           )
   return str(out_path)
 
