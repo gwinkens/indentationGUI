@@ -3,11 +3,6 @@
 #pylint: disable=line-too-long, unsubscriptable-object, invalid-unary-operand-type, access-member-before-definition, attribute-defined-outside-init
 #pylint: disable=possibly-used-before-assignment, used-before-assignment
 
-# import warnings
-# from tables import NaturalNameWarning
-# # Suppress all NaturalNameWarning warnings
-# warnings.filterwarnings("ignore", category=NaturalNameWarning)
-
 
 import math, traceback, io
 from zipfile import ZipFile
@@ -21,7 +16,7 @@ from scipy.optimize import curve_fit
 from micromechanics import indentation
 from micromechanics.indentation.definitions import Method, Vendor
 from .CorrectThermalDrift import correctThermalDrift
-from .Tools4hdf5 import convertXLSXtoHDF5
+from .Tools4hdf5 import convertXLSXtoHDF5, ConvertedXLSX
 from .load_depth import pick
 
 class IndentationXXX(indentation.Indentation):
@@ -388,17 +383,17 @@ class IndentationXXX(indentation.Indentation):
     thePath = fileName[:index_path_end]
     index_file_end = [i for i,c in enumerate(fileName) if c=='.'][-1]
     theFile = fileName[index_path_end+1:index_file_end]
-    # try to open hdf5-file, if not convert .xlsx to .h5
+    # try to open hdf5-file, if not (or in outdated format) convert .xlsx to .h5
     try:
-      # read converted .hf5
-      self.datafile = pd.HDFStore(f"{thePath}{slash}{theFile}.h5", mode='r') # pylint: disable=attribute-defined-outside-init
+      # read converted .h5
+      self.datafile = ConvertedXLSX(f"{thePath}{slash}{theFile}.h5") # pylint: disable=attribute-defined-outside-init
       if self.output['progressBar'] is not None:
         self.output['progressBar'](100,'convert')  # pylint: disable=not-callable
-    except:
+    except (OSError, ValueError):
       if '.xls' in fileName:   #also matches .xlsx
         convertXLSXtoHDF5(XLSX_File=fileName,progressbar=self.output['progressBar'])
-        # read converted .hf5
-        self.datafile = pd.HDFStore(f"{thePath}{slash}{theFile}.h5", mode='r') # pylint: disable=attribute-defined-outside-init
+        # read converted .h5
+        self.datafile = ConvertedXLSX(f"{thePath}{slash}{theFile}.h5") # pylint: disable=attribute-defined-outside-init
       else:
         print(f"**ERROE: {fileName} is not an XLSX File")
     self.indicies = {} # pylint: disable=attribute-defined-outside-init

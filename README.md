@@ -36,7 +36,8 @@ Users need to know:
   - **[Important]** If you changed the content of the original file, please delete the correspoding HDF5 file.
 - For exporting calculated results:
   - Results can be exported to `.xlsx` or `.h5`.
-  - Exported `.h5` result files are written in pandas/PyTables format for compatibility with tools such as ViTables.
+  - Exported `.h5` result files follow the [NeXus](https://www.nexusformat.org) format and can be opened by any HDF5 tool (h5py, HDFView, ViTables, MATLAB, ...) or NeXus tool (NeXpy). The file contains one `entry` (NXentry) with the analysis parameters in `entry/analysis/parameters`, the summary table in `entry/results` and one group per test; units are stored in the `units` attribute of each field.
+  - The automatically generated HDF5 files of the original data are NeXus files as well (one group per sheet of the original file). HDF5 files of older versions are regenerated automatically.
   - Creep-rate exports include `time[s]`, `equiv stress[GPa]`, and `creep rate[s-1]` for each exported test.
 
 Running by keyboard typing the following command and pressing Enter in the terminal

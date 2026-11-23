@@ -2,12 +2,11 @@
 
 """ Graphical user interface to export results """
 import os
-import warnings
-import pandas as pd
 from pandas import ExcelWriter, DataFrame
 import numpy as np
-from tables import NaturalNameWarning
+from . import __version__
 from .Tools4LoadingData import read_file_list
+from .Tools4hdf5 import NEXUS_CREATOR, nexus_file, nexus_group, nexus_field, nexus_name
 
 def export(self, win):
   """
@@ -149,7 +148,10 @@ def export(self, win):
                     columns=[' '])
 
   if Index_ExportFileType == 1:
-    _export_hdf5(output_path, Index_ExportTab, df, win)
+    try:
+      _export_hdf5(output_path, Index_ExportTab, _nexus_parameters(Index_ExportTab, win), win)
+    except OSError as e:
+      win.show_error(str(e), 'Close the opened HDF5 file.')
     return
 
   #write to excel
@@ -399,122 +401,214 @@ def export(self, win):
   return
 
 
-def _export_hdf5(output_path, index_export_tab, df_params, win):
-  """Export results to a pandas/PyTables HDF5 file."""
-  with pd.HDFStore(output_path, mode='w', complevel=9, complib='zlib') as h5_file:
-    h5_file.root._v_attrs.export_format = 'pandas_hdfstore'
-    _write_hdf_dataframe(h5_file, '/experimental_parameters', df_params)
+def _float_or_text(text):
+  """Return the content of a line edit as float if possible, else as text."""
+  try:
+    return float(text)
+  except ValueError:
+    return text
+
+
+def _nexus_parameters(index_export_tab, win):
+  """
+  Collect the experimental parameters of a tab for the NeXus export
+
+  Args:
+    index_export_tab (int): exported tab, see comboBox_ExportTab
+    win (class): MainWindow
+
+  Returns:
+    list: tuples of (name, value, units, long_name)
+  """
+  ui = win.ui
+  if index_export_tab == 0:
+    return [
+      ('material_name', ui.lineEdit_MaterialName_tabHE.text(), None, 'Name of Tested Material'),
+      ('data_file', ui.lineEdit_path_tabHE.text(), None, 'Path'),
+      ('poisson_ratio', ui.doubleSpinBox_Poisson_tabHE.value(), None, "Poisson's Ratio"),
+      ('tip_name', ui.lineEdit_TipName_tabHE.text(), None, 'Tip Name'),
+      ('tip_youngs_modulus', ui.doubleSpinBox_E_Tip_tabHE.value(), 'GPa', "Young's Modulus of Tip"),
+      ('tip_poisson_ratio', ui.doubleSpinBox_Poisson_Tip_tabHE.value(), None, "Poisson's Ratio of Tip"),
+      ('tip_area_function_C0', _float_or_text(ui.lineEdit_TAF1_tabHE.text()), None, 'Tip Area Function (TAF) term C0'),
+      ('tip_area_function_C1', _float_or_text(ui.lineEdit_TAF2_tabHE.text()), None, 'Tip Area Function (TAF) term C1'),
+      ('tip_area_function_C2', _float_or_text(ui.lineEdit_TAF3_tabHE.text()), None, 'Tip Area Function (TAF) term C2'),
+      ('tip_area_function_C3', _float_or_text(ui.lineEdit_TAF4_tabHE.text()), None, 'Tip Area Function (TAF) term C3'),
+      ('tip_area_function_C4', _float_or_text(ui.lineEdit_TAF5_tabHE.text()), None, 'Tip Area Function (TAF) term C4'),
+      ('frame_compliance', _float_or_text(ui.lineEdit_FrameCompliance_tabHE.text()), 'um/mN', 'Frame Compliance'),
+      ('unloading_range_start', ui.doubleSpinBox_Start_Pmax_tabHE.value(), None,
+       'Unloading Range to Calculate Stiffness: Start [fraction of Pmax]'),
+      ('unloading_range_end', ui.doubleSpinBox_End_Pmax_tabHE.value(), None,
+       'Unloading Range to Calculate Stiffness: End [fraction of Pmax]'),
+      ('hc_min_for_mean', ui.doubleSpinBox_minhc4mean_tabHE.value(), 'um', 'Range for calculating mean value: min. hc'),
+      ('hc_max_for_mean', ui.doubleSpinBox_maxhc4mean_tabHE.value(), 'um', 'Range for calculating mean value: max. hc'),
+    ]
+  if index_export_tab == 1:
+    return [
+      ('material_name', ui.lineEdit_MaterialName_tabPopIn.text(), None, 'Name of Tested Material'),
+      ('data_file', ui.lineEdit_path_tabPopIn.text(), None, 'Path'),
+      ('poisson_ratio', ui.doubleSpinBox_Poisson_tabPopIn.value(), None, "Poisson's Ratio"),
+      ('tip_name', ui.lineEdit_TipName_tabPopIn.text(), None, 'Tip Name'),
+      ('tip_youngs_modulus', ui.doubleSpinBox_E_Tip_tabPopIn.value(), 'GPa', "Young's Modulus of Tip"),
+      ('tip_poisson_ratio', ui.doubleSpinBox_Poisson_Tip_tabPopIn.value(), None, "Poisson's Ratio of Tip"),
+      ('tip_radius', ui.doubleSpinBox_TipRadius_tabPopIn.value(), 'um', 'Tip Radius'),
+      ('frame_compliance', _float_or_text(ui.lineEdit_FrameCompliance_tabPopIn.text()), 'um/mN', 'Frame Compliance'),
+    ]
+  if index_export_tab == 2:
+    return [
+      ('data_files', ui.textEdit_Files_tabClassification.toPlainText(), None, 'Files'),
+      ('number_of_clusters', ui.spinBox_NumberClusters_tabClassification.value(), None, 'Number of Clusters'),
+      ('weighting_ratio', ui.doubleSpinBox_WeightingRatio_tabClassification.value(), None, 'Weighting ratio, y/x'),
+      ('flip_mapping', ui.comboBox_FlipMapping_tabClassification.currentIndex(), None,
+       'Flip mapping (0=None, 1=Left-Right, 2=Top-Bottom, 3=Both)'),
+    ]
+  file_list = read_file_list(ui.tableWidget_path_tabCreep)
+  return [
+    ('data_file', file_list[0] if file_list else '', None, 'Path'),
+    ('poisson_ratio', ui.doubleSpinBox_Poisson_tabCreep.value(), None, "Poisson's Ratio"),
+    ('tip_youngs_modulus', ui.doubleSpinBox_E_Tip_tabCreep.value(), 'GPa', "Young's Modulus of Tip"),
+    ('tip_poisson_ratio', ui.doubleSpinBox_Poisson_Tip_tabCreep.value(), None, "Poisson's Ratio of Tip"),
+    ('frame_compliance', _float_or_text(ui.lineEdit_FrameCompliance_tabCreep.text()), 'um/mN', 'Frame Compliance'),
+    ('data_segment_for_smoothing', ui.doubleSpinBox_DataSegment4Smooth_tabCreep.value(), 's',
+     'Data Segment for Smoothing'),
+  ]
+
+
+NEXUS_ANALYSES = {
+  0: 'Hardness and Young\'s modulus',
+  1: 'Pop-in analysis',
+  2: 'K-means clustering',
+  3: 'Creep rate',
+}
+
+
+def _nexus_data(parent, name, fields, signal, *, axes=None, auxiliary_signals=None, title=None):
+  """
+  Write a NXdata group
+
+  Args:
+    parent (h5py.Group): parent group
+    name (str): name of the group
+    fields (list): tuples of (name, values, units, long_name); a field FIELD_errors holds the uncertainty of FIELD
+    signal (str): name of the field to plot
+    axes (str): name of the field used as x-axis
+    auxiliary_signals (list): names of further fields to plot
+    title (str): title of the plot
+  """
+  attrs = {'signal': signal}
+  if axes is not None:
+    attrs['axes'] = axes
+    attrs[f'{axes}_indices'] = 0
+  if auxiliary_signals:
+    attrs['auxiliary_signals'] = auxiliary_signals
+  data = nexus_group(parent, name, 'NXdata', **attrs)
+  if title is not None:
+    nexus_field(data, 'title', title)
+  for field_name, values, units, long_name in fields:
+    nexus_field(data, field_name, values, units=units, long_name=long_name)
+
+
+def _export_hdf5(output_path, index_export_tab, parameters, win):
+  """
+  Export results to a NeXus file (hdf5)
+
+  Layout: /entry (NXentry) with sample (NXsample), analysis (NXprocess) including the
+  parameters (NXparameters), results (NXdata: one row per test) and one NXdata per test
+
+  Args:
+    output_path (str): full file path
+    index_export_tab (int): exported tab, see comboBox_ExportTab
+    parameters (list): tuples of (name, value, units, long_name), see _nexus_parameters
+    win (class): MainWindow
+  """
+  with nexus_file(output_path) as hdf:
+    hdf.attrs['default'] = 'entry'
+    entry = nexus_group(hdf, 'entry', 'NXentry', default='results')
+    material = next((value for name, value, _, _ in parameters if name == 'material_name'), '')
+    title = NEXUS_ANALYSES[index_export_tab] + (f' of {material}' if material else '')
+    nexus_field(entry, 'title', title)
+    nexus_field(entry, 'program_name', NEXUS_CREATOR).attrs['version'] = __version__
+    if material:
+      sample = nexus_group(entry, 'sample', 'NXsample')
+      nexus_field(sample, 'name', material)
+    analysis = nexus_group(entry, 'analysis', 'NXprocess')
+    nexus_field(analysis, 'program', f'{NEXUS_CREATOR}: {NEXUS_ANALYSES[index_export_tab]}')
+    nexus_field(analysis, 'version', __version__)
+    nexus_field(analysis, 'date', hdf.attrs['file_time'])
+    group_parameters = nexus_group(analysis, 'parameters', 'NXparameters')
+    for name, value, units, long_name in parameters:
+      nexus_field(group_parameters, name, value, units=units, long_name=long_name)
+    used_names = {'title', 'program_name', 'sample', 'analysis', 'results'}
+
     if index_export_tab == 0:
-      summary_df = DataFrame({
-        'Test Name': win.tabHE_testName_collect,
-        'max. hc [µm]': [values[-1] for values in win.tabHE_hc_collect],
-        'max. hmax [µm]': win.tabHE_hmax_collect,
-        'max. Pmax [mN]': [values[-1] for values in win.tabHE_Pmax_collect],
-        'mean of H [GPa]': win.tabHE_Hmean_collect,
-        'std of H [GPa]': win.tabHE_Hstd_collect,
-        'mean of E [GPa]': win.tabHE_Emean_collect,
-        'std of E [GPa]': win.tabHE_Estd_collect,
-        'mean of Er [GPa]': win.tabHE_Er_mean_collect,
-        'std of Er [GPa]': win.tabHE_Er_std_collect,
-        'X Position [µm]': win.tabHE_X_Position_collect,
-        'Y Position [µm]': win.tabHE_Y_Position_collect,
-      })
-      _write_hdf_dataframe(h5_file, '/results', summary_df)
-      test_keys = set()
+      _nexus_data(entry, 'results', [
+        ('test_name', win.tabHE_testName_collect, None, 'Test Name'),
+        ('hc_max', [values[-1] for values in win.tabHE_hc_collect], 'um', 'max. hc'),
+        ('hmax_max', [np.atleast_1d(values)[-1] for values in win.tabHE_hmax_collect], 'um', 'max. hmax'),
+        ('Pmax_max', [values[-1] for values in win.tabHE_Pmax_collect], 'mN', 'max. Pmax'),
+        ('H_mean', win.tabHE_Hmean_collect, 'GPa', 'mean of H'),
+        ('H_mean_errors', win.tabHE_Hstd_collect, 'GPa', 'std of H'),
+        ('E_mean', win.tabHE_Emean_collect, 'GPa', 'mean of E'),
+        ('E_mean_errors', win.tabHE_Estd_collect, 'GPa', 'std of E'),
+        ('Er_mean', win.tabHE_Er_mean_collect, 'GPa', 'mean of Er'),
+        ('Er_mean_errors', win.tabHE_Er_std_collect, 'GPa', 'std of Er'),
+        ('x_position', win.tabHE_X_Position_collect, 'um', 'X Position'),
+        ('y_position', win.tabHE_Y_Position_collect, 'um', 'Y Position'),
+      ], signal='H_mean', auxiliary_signals=['E_mean', 'Er_mean'], title=title)
       for i, test_name in enumerate(win.tabHE_testName_collect):
-        x_pos = win.tabHE_X_Position_collect[i] if win.tabHE_X_Position_collect[i] is not None else 0
-        y_pos = win.tabHE_Y_Position_collect[i] if win.tabHE_Y_Position_collect[i] is not None else 0
-        n = len(win.tabHE_E_collect[i])
-        per_test_df = DataFrame({
-          'Test Name': [test_name] * n,
-          'hc[µm]': win.tabHE_hc_collect[i],
-          'hmax[µm]': win.tabHE_hmax_collect[i] * np.ones(n),
-          'Pmax[mN]': win.tabHE_Pmax_collect[i],
-          'H[GPa]': win.tabHE_H_collect[i],
-          'E[GPa]': win.tabHE_E_collect[i],
-          'Er[GPa]': win.tabHE_Er_collect[i],
-          'X Position [µm]': x_pos * np.ones(n),
-          'Y Position [µm]': y_pos * np.ones(n),
-        })
-        _write_hdf_dataframe(h5_file, _hdf_test_key(test_name, test_keys), per_test_df)
+        _nexus_data(entry, nexus_name(test_name, used_names), [
+          ('hc', win.tabHE_hc_collect[i], 'um', 'hc'),
+          ('H', win.tabHE_H_collect[i], 'GPa', 'H'),
+          ('E', win.tabHE_E_collect[i], 'GPa', 'E'),
+          ('Er', win.tabHE_Er_collect[i], 'GPa', 'Er'),
+          ('Pmax', win.tabHE_Pmax_collect[i], 'mN', 'Pmax'),
+          ('hmax', win.tabHE_hmax_collect[i], 'um', 'hmax'),
+          ('x_position', win.tabHE_X_Position_collect[i], 'um', 'X Position'),
+          ('y_position', win.tabHE_Y_Position_collect[i], 'um', 'Y Position'),
+        ], signal='H', axes='hc', auxiliary_signals=['E', 'Er'], title=str(test_name))
     elif index_export_tab == 1:
       rows = []
       for j, test_name in enumerate(win.tabPopIn_testName_collect):
         try:
           for k, _ in enumerate(win.tabPopIn_fPopIn_collect[j]):
-            rows.append({
-              'Test Name': test_name,
-              'Pop-in Load [mN]': win.tabPopIn_fPopIn_collect[j][k],
-              'fitted Hertzian prefactor[mN*µm^(-3/2)]': win.tabPopIn_prefactor_collect[j][k],
-              'calculated E [GPa]': win.tabPopIn_E_collect[j][k],
-              'calculated max. shear stress [GPa]': win.tabPopIn_maxShearStress_collect[j][k],
-            })
+            rows.append((test_name, win.tabPopIn_fPopIn_collect[j][k], win.tabPopIn_prefactor_collect[j][k],
+                         win.tabPopIn_E_collect[j][k], win.tabPopIn_maxShearStress_collect[j][k]))
         except (TypeError, IndexError):
-          rows.append({
-            'Test Name': test_name,
-            'Pop-in Load [mN]': win.tabPopIn_fPopIn_collect[j],
-            'fitted Hertzian prefactor[mN*µm^(-3/2)]': win.tabPopIn_prefactor_collect[j],
-            'calculated E [GPa]': win.tabPopIn_E_collect[j],
-            'calculated max. shear stress [GPa]': win.tabPopIn_maxShearStress_collect[j],
-          })
-      _write_hdf_dataframe(h5_file, '/results', DataFrame(rows))
+          rows.append((test_name, win.tabPopIn_fPopIn_collect[j], win.tabPopIn_prefactor_collect[j],
+                       win.tabPopIn_E_collect[j], win.tabPopIn_maxShearStress_collect[j]))
+      columns = list(zip(*rows)) if rows else [[]] * 5
+      _nexus_data(entry, 'results', [
+        ('test_name', list(columns[0]), None, 'Test Name'),
+        ('pop_in_load', list(columns[1]), 'mN', 'Pop-in Load'),
+        ('hertzian_prefactor', list(columns[2]), 'mN/um^1.5', 'fitted Hertzian prefactor'),
+        ('E', list(columns[3]), 'GPa', 'calculated E'),
+        ('max_shear_stress', list(columns[4]), 'GPa', 'calculated max. shear stress'),
+      ], signal='pop_in_load', auxiliary_signals=['max_shear_stress', 'E'], title=title)
     elif index_export_tab == 2:
-      classification_df = DataFrame({
-        'File Number': win.tabClassification_FileNumber_collect,
-        'Test Name': win.tabClassification_TestName_collect,
-        'Cluster Number': win.tabClassification_ClusterLabels,
-        'mean of H [GPa]': win.tabClassification_H_collect,
-        'mean of E [GPa]': win.tabClassification_E_collect,
-        'mean of Er [GPa]': win.tabClassification_Er_collect,
-      })
-      _write_hdf_dataframe(h5_file, '/results', classification_df)
+      _nexus_data(entry, 'results', [
+        ('file_number', win.tabClassification_FileNumber_collect, None, 'File Number'),
+        ('test_name', win.tabClassification_TestName_collect, None, 'Test Name'),
+        ('cluster_number', win.tabClassification_ClusterLabels, None, 'Cluster Number'),
+        ('H_mean', win.tabClassification_H_collect, 'GPa', 'mean of H'),
+        ('E_mean', win.tabClassification_E_collect, 'GPa', 'mean of E'),
+        ('Er_mean', win.tabClassification_Er_collect, 'GPa', 'mean of Er'),
+      ], signal='H_mean', auxiliary_signals=['E_mean', 'Er_mean'], title=title)
     elif index_export_tab == 3:
-      summary_df = DataFrame({
-        'Test Name': win.tabCreep_testName_collect,
-        'mean of H [GPa]': win.tabCreep_Hmean_collect,
-        'std of H [GPa]': win.tabCreep_Hstd_collect,
-        'mean of E [GPa]': win.tabCreep_Emean_collect,
-        'std of E [GPa]': win.tabCreep_Estd_collect,
-        'X Position [µm]': win.tabCreep_X_Position_collect,
-        'Y Position [µm]': win.tabCreep_Y_Position_collect,
-      })
-      _write_hdf_dataframe(h5_file, '/results', summary_df)
-      test_keys = set()
+      _nexus_data(entry, 'results', [
+        ('test_name', win.tabCreep_testName_collect, None, 'Test Name'),
+        ('H_mean', win.tabCreep_Hmean_collect, 'GPa', 'mean of H'),
+        ('H_mean_errors', win.tabCreep_Hstd_collect, 'GPa', 'std of H'),
+        ('E_mean', win.tabCreep_Emean_collect, 'GPa', 'mean of E'),
+        ('E_mean_errors', win.tabCreep_Estd_collect, 'GPa', 'std of E'),
+        ('x_position', win.tabCreep_X_Position_collect, 'um', 'X Position'),
+        ('y_position', win.tabCreep_Y_Position_collect, 'um', 'Y Position'),
+      ], signal='H_mean', auxiliary_signals=['E_mean'], title=title)
       for i, test_name in enumerate(win.tabCreep_testName_collect):
         n = len(win.tabCreep_equivStress_collect[i])
-        time_values = _tab_creep_time_values(win, i, n)
-        per_test_df = DataFrame({
-          'Test Name': [test_name] * n,
-          'time[s]': time_values,
-          'equiv stress[GPa]': win.tabCreep_equivStress_collect[i],
-          'creep rate[s-1]': win.tabCreep_CreepRate_collect[i],
-        })
-        _write_hdf_dataframe(h5_file, _hdf_test_key(test_name, test_keys), per_test_df)
-
-
-def _write_hdf_dataframe(store, key, df):
-  """Write a DataFrame in the pandas/PyTables format expected by ViTables."""
-  df = df.copy()
-  for col_name in df.columns:
-    if not pd.api.types.is_numeric_dtype(df[col_name]):
-      df[col_name] = df[col_name].map(_stringify_hdf_value)
-  hdf_format = 'fixed' if df.empty else 'table'
-  with warnings.catch_warnings():
-    warnings.filterwarnings('ignore', category=NaturalNameWarning)
-    store.put(key, df, format=hdf_format)
-
-
-def _stringify_hdf_value(value):
-  """Convert object values to strings without treating array-like values as missing."""
-  if value is None:
-    return ''
-  try:
-    is_missing = pd.isna(value)
-  except (TypeError, ValueError):
-    is_missing = False
-  if isinstance(is_missing, (bool, np.bool_)) and is_missing:
-    return ''
-  return str(value)
+        _nexus_data(entry, nexus_name(test_name, used_names), [
+          ('time', _tab_creep_time_values(win, i, n), 's', 'time'),
+          ('creep_rate', win.tabCreep_CreepRate_collect[i], '1/s', 'creep rate'),
+          ('equiv_stress', win.tabCreep_equivStress_collect[i], 'GPa', 'equiv stress'),
+        ], signal='creep_rate', axes='time', auxiliary_signals=['equiv_stress'], title=str(test_name))
 
 
 def _tab_creep_time_values(win, index, length):
@@ -528,24 +622,3 @@ def _tab_creep_time_values(win, index, length):
     if len(values) == length:
       return values
   return np.arange(length, dtype=float)
-
-
-def _hdf_test_key(test_name, used_keys):
-  """Return a unique HDF5 key whose leaf matches the exported test name."""
-  key_name = _sanitize_hdf_key_name(test_name)
-  key = f'/tests/{key_name}'
-  if key not in used_keys:
-    used_keys.add(key)
-    return key
-  counter = 2
-  while f'{key}_{counter}' in used_keys:
-    counter += 1
-  unique_key = f'{key}_{counter}'
-  used_keys.add(unique_key)
-  return unique_key
-
-
-def _sanitize_hdf_key_name(value):
-  """Make a test name safe as one HDF5 path component."""
-  name = str(value).strip().replace('/', '_')
-  return name or 'test'

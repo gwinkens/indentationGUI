@@ -69,9 +69,13 @@ After checking the results and plots, the GUI supports:
 - exporting results to `xlsx`
 - exporting results to `hdf5`
 
-The exported `hdf5` result files use pandas/PyTables format, which can be
-opened by tools such as ViTables. Creep-rate exports include the per-test
-columns `time[s]`, `equiv stress[GPa]`, and `creep rate[s-1]`.
+The exported `hdf5` result files follow the NeXus format
+(https://www.nexusformat.org) and can be opened by any HDF5 tool (h5py,
+HDFView, ViTables, MATLAB, ...) or NeXus tool (NeXpy). They contain the
+analysis parameters in `entry/analysis/parameters`, the summary table in
+`entry/results` and one group per test. Units are stored in the `units`
+attribute of each field. Creep-rate exports include the per-test fields
+`time`, `equiv_stress` and `creep_rate`.
 
 ## Save sessions
 

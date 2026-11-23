@@ -51,11 +51,13 @@ For each exported test, the creep-rate output includes:
 - `equiv stress[GPa]`
 - `creep rate[s-1]`
 
-For `hdf5` export, the file is written in pandas/PyTables format so it can be
-opened by tools such as ViTables. The summary table is stored under `results`,
-and per-test creep-rate tables are stored under `tests/<Test Name>`, for
-example `tests/Test 4`. The HDF5 folder name therefore matches the `Test Name`
-column inside the exported table.
+For `hdf5` export, the file is written in NeXus format
+(https://www.nexusformat.org), so it can be opened by any HDF5 or NeXus tool.
+The summary table is stored under `entry/results`, and the per-test fields
+`time` [s], `equiv_stress` [GPa] and `creep_rate` [1/s] are stored under
+`entry/<Test Name>`, for example `entry/Test_4`. Characters other than letters,
+digits and `_` are replaced by `_` in the group name; the original test name is
+stored in the field `title` of each group.
 
 ## Common problems
 
