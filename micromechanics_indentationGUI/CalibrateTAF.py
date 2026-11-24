@@ -10,11 +10,14 @@ import matplotlib.pyplot as plt
 from scipy.stats import binned_statistic
 from micromechanics import indentation
 from PySide6.QtCore import Qt # pylint: disable=no-name-in-module
+from PySide6.QtGui import QColor # pylint: disable=no-name-in-module
 from PySide6.QtWidgets import QApplication, QTableWidgetItem, QFileDialog # pylint: disable=no-name-in-module
 from . import __version__
 from .WaitingUpgrade_of_micromechanics import IndentationXXX
 from .Tools4LoadingData import read_file_list, Convert2inGUI
 from .load_depth import pick
+from .Export import confirm_overwrite
+from .Tools_for_GUI.gui_actions import readFileSummary, refreshTestList
 from .Tools_for_GUI.draggable_smooth_bars import DraggableSmoothBars
 
 def click_OK_calibration(self): #pylint: disable=too-many-locals
@@ -385,6 +388,9 @@ def export_TAF_json(self):
     'frame_compliance': self.static_canvas_FrameStiffness_tabTAF,
     'tip_area_function': self.static_canvas_TAF_tabTAF,
     }
+  if not confirm_overwrite(self, [f"{basePath}_{kind}.json" for kind in ('settings', 'results')] +
+                                 [f"{basePath}_{kind}.png" for kind in plots]):
+    return
   exportedFiles = []
   try:
     for kind, content in (('settings', self.settings_tabTAF), ('results', self.results_tabTAF)):
@@ -399,6 +405,151 @@ def export_TAF_json(self):
     return
   self.show_wait()
   self.close_wait(info='Exported to\n' + '\n'.join(exportedFiles))
+
+TIP_TYPES = ('Berkovich', 'Sphere', 'Sphere+Cone')    #order of comboBox_TipType_tabTAF
+#settings of export_TAF_json: (group, key) -> widget of tabTAF
+TAF_SETTINGS_WIDGETS = {
+  ('sample', 'material_name'): 'lineEdit_MaterialName_tabTAF',
+  ('sample', 'youngs_modulus_GPa'): 'doubleSpinBox_E_tabTAF',
+  ('sample', 'poissons_ratio'): 'doubleSpinBox_Poisson_tabTAF',
+  ('tip', 'name'): 'lineEdit_TipName_tabTAF',
+  ('tip', 'youngs_modulus_GPa'): 'doubleSpinBox_E_Tip_tabTAF',
+  ('tip', 'poissons_ratio'): 'doubleSpinBox_Poisson_Tip_tabTAF',
+  ('tip', 'sphere_radius_um'): 'doubleSpinBox_idealRadiusSphere_tabTAF',
+  ('tip', 'cone_half_included_angle_deg'): 'doubleSpinBox_half_includedAngle_tabTAF',
+  ('tip_area_function_fit', 'number_of_terms'): 'spinBox_number_of_TAFterms_tabTAF',
+  ('tip_area_function_fit', 'terms_greater_than_zero'): 'checkBox_IfTermsGreaterThanZero_tabTAF',
+  ('tip_area_function_fit', 'min_contact_depth_um'): 'doubleSpinBox_minhc_Tip_tabTAF',
+  ('tip_area_function_fit', 'max_contact_depth_um'): 'doubleSpinBox_maxhc_Tip_tabTAF',
+  ('frame_compliance_fit', 'min_depth_um'): 'doubleSpinBox_critDepthStiffness_tabTAF',
+  ('frame_compliance_fit', 'max_depth_um'): 'doubleSpinBox_critMaxDepthStiffness_tabTAF',
+  ('frame_compliance_fit', 'min_force_mN'): 'doubleSpinBox_critForceStiffness_tabTAF',
+  ('frame_compliance_fit', 'max_force_mN'): 'doubleSpinBox_critMaxForceStiffness_tabTAF',
+  ('surface_detection', 'use_dPdh_threshold'): 'checkBox_UsingRate2findSurface_tabTAF',
+  ('surface_detection', 'dPdh_threshold_mN_per_um'): 'doubleSpinBox_Rate2findSurface_tabTAF',
+  ('surface_detection', 'median_filter_size'): 'spinBox_DataFilterSize_tabTAF',
+  ('surface_detection', 'use_surface_index_first'): 'checkBox_UsingSurfaceIndex_tabTAF',
+  ('load_hold_unload_detection', 'unloading_fit_start_fraction_of_Pmax'): 'doubleSpinBox_Start_Pmax_tabTAF',
+  ('load_hold_unload_detection', 'unloading_fit_end_fraction_of_Pmax'): 'doubleSpinBox_End_Pmax_tabTAF',
+  ('load_hold_unload_detection', 'dPdt_noise_threshold_mN_per_s'): 'doubleSpinBox_relForceRateNoise_tabTAF',
+  ('load_hold_unload_detection', 'max_fluctuation_size'): 'spinBox_max_size_fluctuation_tabTAF',
+  ('thermal_drift_correction', 'post_test'): 'checkBox_UsingDriftUnloading_tabTAF',
+  ('thermal_drift_correction', 'post_test_data_range_percent'): 'doubleSpinBox_UsingDriftUnloading_tabTAF',
+  ('thermal_drift_correction', 'pre_test'): 'checkBox_UsingDriftPre_tabTAF',
+  ('thermal_drift_correction', 'pre_test_data_range_percent'): 'doubleSpinBox_UsingDriftPre_tabTAF',
+  }
+
+def import_TAF_json(self):
+  """
+  import the settings and the results of a calibration of the tip area function exported by
+  export_TAF_json (<name>_settings.json and/or <name>_results.json; either file can be selected).
+  The settings fill the inputs of tabTAF, the results the frame compliance and the terms of the TAF,
+  which can be copied to the other tabs as after a calculation.
+  """
+  fileName = QFileDialog.getOpenFileName(self, 'Import settings and results', '', 'JSON (*.json)')[0]
+  if not fileName:
+    return
+  basePath = str(Path(fileName).with_suffix(''))
+  for kind in ('_settings', '_results'):
+    basePath = basePath.removesuffix(kind)
+  content = {}
+  try:
+    for kind in ('settings', 'results'):
+      if Path(f"{basePath}_{kind}.json").exists():
+        with open(f"{basePath}_{kind}.json", encoding='utf-8') as fIn:
+          content[kind] = json.load(fIn)
+  except (OSError, ValueError) as e:
+    self.show_error(str(e), 'Select a json-file exported by "Export settings, results and plots".')
+    return
+  if not content:
+    self.show_error(f"Neither {Path(basePath).name}_settings.json nor {Path(basePath).name}_results.json found.",
+                    'Select a json-file exported by "Export settings, results and plots".')
+    return
+  notes = []
+  try:
+    if 'settings' in content:
+      notes += _set_TAF_settings(self, content['settings'])
+    if 'results' in content:
+      notes += _set_TAF_results(self, content['results'])
+  except (KeyError, TypeError, ValueError) as e:
+    self.show_error(f"Unexpected content of the json-file: {e}",
+                    'Select a json-file exported by "Export settings, results and plots".')
+    return
+  self.show_wait()
+  self.close_wait(info='Imported\n' + '\n'.join(f"{basePath}_{kind}.json" for kind in content) +
+                  ''.join(f"\n\n{note}" for note in notes))
+
+def _set_TAF_settings(self, settings):
+  """
+  fill the inputs of tabTAF with the settings of an exported calibration
+
+  Args:
+    settings (dict): content of <name>_settings.json
+
+  Returns:
+    list: notes for the user
+  """
+  notes = []
+  for (group, key), widgetName in TAF_SETTINGS_WIDGETS.items():
+    widget = getattr(self.ui, widgetName)
+    value = settings[group][key]
+    if widgetName.startswith('lineEdit'):
+      widget.setText(value)
+    elif widgetName.startswith('checkBox'):
+      widget.setChecked(value)
+    else:
+      widget.setValue(value)
+  self.ui.comboBox_TipType_tabTAF.setCurrentIndex(TIP_TYPES.index(settings['tip']['geometry']))
+  comboBox = self.ui.comboBox_CalculationMethod_tabTAF
+  methods = [' '.join(comboBox.itemText(k).split()) for k in range(comboBox.count())]
+  if settings['calculation_method'] in methods:
+    comboBox.setCurrentIndex(methods.index(settings['calculation_method']))
+  #file list: the files are checked as if added by hand, which lists the tests of a single file
+  tableWidget = self.ui.tableWidget_path_tabTAF
+  tableWidget.setRowCount(len(settings['files']))
+  for k, file in enumerate(settings['files']):
+    qtablewidgetitem = QTableWidgetItem(file)
+    qtablewidgetitem.setCheckState(Qt.Checked)
+    success, info, _ = readFileSummary(file)
+    qtablewidgetitem.setBackground(QColor(0, 170, 0, 60) if success else QColor(220, 0, 0, 60))
+    qtablewidgetitem.setToolTip(info)
+    tableWidget.setVerticalHeaderItem(k, QTableWidgetItem(f"Path{k+1}"))
+    tableWidget.setItem(k, 0, qtablewidgetitem)
+    if not success:
+      notes.append(info)
+  refreshTestList(tableWidget)
+  #selection of the tests and surface indices, if the tests are listed
+  testTable = self.ui.tableWidget_tabTAF
+  surfaceIndex = settings['surface_detection']['surface_index']
+  for k in range(testTable.rowCount()):
+    item = testTable.item(k, 0)
+    if item is None:
+      continue
+    item.setCheckState(Qt.Unchecked if item.text() in settings['tests_not_used'] else Qt.Checked)
+    if item.text() in surfaceIndex:
+      testTable.setItem(k, 2, QTableWidgetItem(str(surfaceIndex[item.text()])))
+  return notes
+
+def _set_TAF_results(self, results):
+  """
+  show the frame compliance and the terms of the tip area function of an exported calibration in tabTAF
+
+  Args:
+    results (dict): content of <name>_results.json
+
+  Returns:
+    list: notes for the user
+  """
+  self.ui.lineEdit_FrameCompliance_tabTAF.setText(f"{results['frame_compliance_um_per_mN']:.10f}")
+  self.ui.lineEdit_FrameStiffness_tabTAF.setText(f"{results['frame_stiffness_mN_per_um']:.10f}")
+  coefficients = results['tip_area_function']['coefficients']
+  for j in range(9):
+    lineEdit = getattr(self.ui, f"lineEdit_TAF{j+1}_tabTAF")
+    lineEdit.setText(f"{coefficients[j]:.10f}" if j < len(coefficients) else "0")
+  if 'offset_nm' in results['tip_area_function']:
+    return [f"The depth offset of the tip area function ({results['tip_area_function']['offset_nm']} nm) "
+            "cannot be shown in the GUI and was not imported."]
+  return []
 
 def plot_TAF(self,hc,Ac,DepthStep4UniformDepth = 0.01):
   """

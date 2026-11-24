@@ -4,9 +4,83 @@
 import os
 from pandas import ExcelWriter, DataFrame
 import numpy as np
+from PySide6.QtWidgets import QMessageBox # pylint: disable=no-name-in-module
 from . import __version__
 from .Tools4LoadingData import read_file_list
 from .Tools4hdf5 import NEXUS_CREATOR, nexus_file, nexus_group, nexus_field, nexus_name
+
+def confirm_overwrite(parent, paths):
+  """
+  Ask the user before existing files are overwritten
+
+  Args:
+    parent (QWidget): parent of the message box
+    paths (list): full paths of the files that will be written
+
+  Returns:
+    bool: True if no file exists or the user agrees to overwrite
+  """
+  existing = [str(path) for path in paths if os.path.exists(path)]
+  if not existing:
+    return True
+  answer = QMessageBox.warning(parent, 'Overwrite files?',
+                               'These files already exist and will be overwritten:\n\n' + '\n'.join(existing),
+                               QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                               QMessageBox.StandardButton.No)
+  return answer == QMessageBox.StandardButton.Yes
+
+#graphs of tabHE (incl. the frame stiffness calibration) exported as png-files: canvas of the MainWindow -> suffix of the file name
+PLOTS_tabHE = {
+  'static_canvas_tabHE_FrameStiffness': 'frame_calibration_frame_compliance',
+  'static_canvas_load_depth_tab_inclusive_frame_stiffness_tabHE_FrameStiffness': 'frame_calibration_load_depth',
+  'static_canvas_load_depth_tab_exclusive_frame_stiffness_tabHE_FrameStiffness': 'frame_calibration_load_depth_frame_corrected',
+  'static_canvas_load_depth_tab_inclusive_frame_stiffness_tabHE': 'load_depth',
+  'static_canvas_load_depth_tab_exclusive_frame_stiffness_tabHE': 'load_depth_frame_corrected',
+  'static_canvas_H_hc_tabHE': 'H_hc',
+  'static_canvas_H_h_tabHE': 'H_h',
+  'static_canvas_H_Index_tabHE': 'H_test',
+  'static_canvas_E_hc_tabHE': 'E_hc',
+  'static_canvas_E_h_tabHE': 'E_h',
+  'static_canvas_E_Index_tabHE': 'E_test',
+  'static_canvas_HE_tabHE': 'H_E',
+  'static_canvas_HE2_hc_tabHE': 'H_E2_hc',
+  }
+
+def plot_files(output_path, index_export_tab, win):
+  """
+  graphs exported together with the results: all graphs of tabHE that show data
+
+  Args:
+    output_path (str): full path of the exported results
+    index_export_tab (int): exported tab, see comboBox_ExportTab
+    win (class): MainWindow
+
+  Returns:
+    dict: full path of the png-file -> canvas
+  """
+  if index_export_tab != 0:
+    return {}
+  basePath = os.path.splitext(output_path)[0]
+  plots = {}
+  for canvasName, suffix in PLOTS_tabHE.items():
+    canvas = getattr(win, canvasName, None)
+    if canvas is not None and any(ax.has_data() for ax in canvas.figure.axes):
+      plots[f"{basePath}_{suffix}.png"] = canvas
+  return plots
+
+def save_plots(plots, win):
+  """
+  save the graphs as png-files
+
+  Args:
+    plots (dict): full path of the png-file -> canvas, see plot_files
+    win (class): MainWindow
+  """
+  try:
+    for fileName, canvas in plots.items():
+      canvas.figure.savefig(fileName, dpi=300)
+  except OSError as e:
+    win.show_error(str(e), 'Check if the folder exists and is writable.')
 
 def export(self, win):
   """
@@ -14,11 +88,17 @@ def export(self, win):
 
   Args:
     win (class): MainWindow
+
+  Returns:
+    bool: False if the user cancelled because the file exists
   """
   Index_ExportTab = self.ui.comboBox_ExportTab.currentIndex()
   Index_ExportFormat = self.ui.comboBox_ExportFormat.currentIndex()
   Index_ExportFileType = self.ui.comboBox_ExportFileType.currentIndex()
   output_path = os.path.join(self.ui.lineEdit_ExportFolder.text(), self.ui.lineEdit_ExportFileName.text())
+  plots = plot_files(output_path, Index_ExportTab, win)
+  if not confirm_overwrite(self, [output_path, *plots]):
+    return False
   writer = None
   if Index_ExportFileType == 0:
     try:
@@ -152,6 +232,8 @@ def export(self, win):
       _export_hdf5(output_path, Index_ExportTab, _nexus_parameters(Index_ExportTab, win), win)
     except OSError as e:
       win.show_error(str(e), 'Close the opened HDF5 file.')
+      return
+    save_plots(plots, win)
     return
 
   #write to excel
@@ -398,6 +480,7 @@ def export(self, win):
 
   #save the writer and create the excel file (.xlsx)
   writer.close()
+  save_plots(plots, win)
   return
 
 

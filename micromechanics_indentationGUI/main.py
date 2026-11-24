@@ -3,6 +3,7 @@
 """ Graphical user interface includes all widgets """
 import sys
 import os
+import re
 from pathlib import Path
 
 os.environ['PYGOBJECT_DISABLE_CAIRO'] = '1'
@@ -66,6 +67,12 @@ from .DialogPathList_ui import Ui_DialogPathList
 from .DialogTestList_ui import Ui_DialogTestList
 from .DialogWait_ui import Ui_DialogWait
 from .Tools4LoadingData import read_file_list
+from .CorrectThermalDrift import TESTS_WITHOUT_PRE_DRIFT
+from .Tools_for_GUI.gui_actions import allFiles
+
+def natural_key(text):
+  """ sort key with numbers compared as numbers, e.g. Test 2 before Test 10 """
+  return [int(part) if part.isdigit() else part for part in re.split(r'(\d+)', text)]
 from .__init__ import __version__
 
 # Subclass QMainWindow to customize your application's main window
@@ -106,7 +113,7 @@ class MainWindow(QMainWindow): #pylint: disable=too-many-public-methods
   from .AnalysePopIn import Analyse_PopIn
   from .CalculateHardnessModulus import Calculate_Hardness_Modulus
   from .CalculateCreepRate import Calculate_CreepRate
-  from .CalibrateTAF import click_OK_calibration, plot_TAF, plot_Hardness_Modulus_tabTAF, plot_weight_tabTAF, export_TAF_json
+  from .CalibrateTAF import click_OK_calibration, plot_TAF, plot_Hardness_Modulus_tabTAF, plot_weight_tabTAF, export_TAF_json, import_TAF_json
   from .Classification import Classification_HE, PlotMappingWithoutClustering, PlotMappingAfterClustering
   from .FrameStiffness import FrameStiffness
   from .load_depth import plot_load_depth, set_aspectRatio, setAsContactSurface, right_click_set_ContactSurface
@@ -203,6 +210,8 @@ class MainWindow(QMainWindow): #pylint: disable=too-many-public-methods
     self.ui.lineEdit_path_tabHE = LegacyPathTableAdapter(self.ui.tableWidget_path_tabHE)
     self.ui.lineEdit_path_tabHE_FrameStiffness = LegacyPathTableAdapter(self.ui.tableWidget_path_tabHE_FrameStiffness)
     self.ui.lineEdit_path_tabTipRadius_FrameStiffness = LegacyPathTableAdapter(self.ui.tableWidget_path_tabTipRadius_FrameStiffness)
+    #files of the frame stiffness calibration in tabHE; files added later are copied to tabHE (copyNewFiles_tabHE)
+    self.files_tabHE_FrameStiffness = allFiles(self.ui.tableWidget_path_tabHE_FrameStiffness)
 
   def get_current_tab_name(self):
     """ get the name of the current tabWidget """
@@ -231,6 +240,7 @@ class MainWindow(QMainWindow): #pylint: disable=too-many-public-methods
     self.ui.pushButton_changeFile_tabTAF.clicked.connect(lambda: self.changeFile_tab(tabName='tabTAF'))
     self.ui.OK_path_tabTAF.clicked.connect(self.click_OK_calibration)
     self.ui.pushButton_ExportJSON_tabTAF.clicked.connect(self.export_TAF_json)
+    self.ui.pushButton_ImportJSON_tabTAF.clicked.connect(self.import_TAF_json)
     self.ui.pushButton_plot_chosen_test_tab_inclusive_frame_stiffness.clicked.connect(lambda: self.plot_load_depth(tabName='tabTAF'))
     self.ui.pushButton_plot_chosen_test_tab_exclusive_frame_stiffness.clicked.connect(lambda: self.plot_load_depth(tabName='tabTAF', If_inclusive_frameStiffness='exclusive'))
     self.ui.pushButton_SelectAll_tabTAF.clicked.connect(lambda: self.click_pushButton_SelectAll(tabName='tabTAF'))
@@ -266,6 +276,7 @@ class MainWindow(QMainWindow): #pylint: disable=too-many-public-methods
     self.ui.Copy_FrameCompliance_tabHE.clicked.connect(lambda: self.Copy_FrameCompliance(tabName='tabHE'))
     self.ui.Copy_TAF_tabHE_FrameStiffness.clicked.connect(lambda: self.Copy_TAF(tabName='tabHE_FrameStiffness', If_complete=False))
     self.ui.Calculate_tabHE.clicked.connect(lambda: self.click_pushButton_Calculate(tabName = 'tabHE', what = 'Hardness_Modulus'))
+    self.ui.pushButton_Export_tabHE.clicked.connect(self.show_DialogExport_tabHE)
     self.ui.pushButton_SelectAll_tabHE.clicked.connect(lambda: self.click_pushButton_SelectAll(tabName='tabHE'))
     self.ui.pushButton_SelectAll_tabHE_FrameStiffness.clicked.connect(lambda: self.click_pushButton_SelectAll(tabName='tabHE_FrameStiffness'))
     self.ui.pushButton_addFile_tabHE.clicked.connect(lambda: self.addFile_tab(tabName='tabHE'))
@@ -464,6 +475,11 @@ class MainWindow(QMainWindow): #pylint: disable=too-many-public-methods
       window_DialogExport.close()
     window_DialogExport.renewFilePath()
     window_DialogExport.show()
+
+  def show_DialogExport_tabHE(self):
+    """ showing dialog window for exporting results with the tab Hardness and Young's Modulus selected """
+    window_DialogExport.ui.comboBox_ExportTab.setCurrentIndex(0)
+    self.show_DialogExport()
 
 
   def show_DialogSaveAs(self): #pylint: disable=no-self-use
@@ -815,6 +831,10 @@ class MainWindow(QMainWindow): #pylint: disable=too-many-public-methods
   def close_wait(self, info=False): #pylint: disable=no-self-use
     """ clsoe the dialog showing waiting info """
     if info:
+      if TESTS_WITHOUT_PRE_DRIFT:
+        info = (f"{info}\n\nNo holding segment of more than 30 s before loading found, i.e. no thermal drift correction"
+                f" with the pre indentation data for: {', '.join(sorted(TESTS_WITHOUT_PRE_DRIFT, key=natural_key))}")
+        TESTS_WITHOUT_PRE_DRIFT.clear()
       window_DialogWait.setWindowTitle('Done!')
       window_DialogWait.print_wait(info)
     else:
@@ -902,7 +922,8 @@ class DialogExport(QDialog):
 
   def go2export(self):
     """ exporting  """
-    self.export(window)
+    if self.export(window) is False:
+      return  # keep the dialog open to change the file name
     self.close()
 
 class DialogWait(QDialog):

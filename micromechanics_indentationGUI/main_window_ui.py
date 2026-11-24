@@ -840,6 +840,13 @@ class Ui_MainWindow(object):
 
         self.verticalLayout_ExportJSON_tabTAF.addWidget(self.pushButton_ExportJSON_tabTAF)
 
+        self.pushButton_ImportJSON_tabTAF = QPushButton(self.tabTAF)
+        self.pushButton_ImportJSON_tabTAF.setObjectName(u"pushButton_ImportJSON_tabTAF")
+        self.pushButton_ImportJSON_tabTAF.setMinimumSize(QSize(200, 0))
+        self.pushButton_ImportJSON_tabTAF.setMaximumSize(QSize(200, 16777215))
+
+        self.verticalLayout_ExportJSON_tabTAF.addWidget(self.pushButton_ImportJSON_tabTAF)
+
         self.verticalSpacer_5 = QSpacerItem(20, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
 
         self.verticalLayout_ExportJSON_tabTAF.addItem(self.verticalSpacer_5)
@@ -4343,13 +4350,20 @@ class Ui_MainWindow(object):
 
         self.gridLayout_48.addWidget(self.Calculate_tabHE, 7, 2, 1, 1)
 
+        self.pushButton_Export_tabHE = QPushButton(self.tabHE)
+        self.pushButton_Export_tabHE.setObjectName(u"pushButton_Export_tabHE")
+        self.pushButton_Export_tabHE.setMinimumSize(QSize(200, 0))
+        self.pushButton_Export_tabHE.setMaximumSize(QSize(224, 16777215))
+
+        self.gridLayout_48.addWidget(self.pushButton_Export_tabHE, 8, 2, 1, 1)
+
         self.verticalSpacer_12 = QSpacerItem(20, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
 
         self.gridLayout_48.addItem(self.verticalSpacer_12, 9, 0, 1, 1)
 
         self.verticalSpacer_3 = QSpacerItem(20, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
 
-        self.gridLayout_48.addItem(self.verticalSpacer_3, 8, 2, 2, 1)
+        self.gridLayout_48.addItem(self.verticalSpacer_3, 9, 2, 1, 1)
 
         self.graphicsView_HE_tabHE_2 = QTabWidget(self.tabHE)
         self.graphicsView_HE_tabHE_2.setObjectName(u"graphicsView_HE_tabHE_2")
@@ -8025,6 +8039,11 @@ class Ui_MainWindow(object):
 #endif // QT_CONFIG(tooltip)
         self.pushButton_ExportJSON_tabTAF.setText(QCoreApplication.translate("MainWindow", u"Export settings,\n"
 "results and plots", None))
+#if QT_CONFIG(tooltip)
+        self.pushButton_ImportJSON_tabTAF.setToolTip(QCoreApplication.translate("MainWindow", u"Import the settings and the results of an exported calibration (JSON files); the results can then be copied to the other tabs", None))
+#endif // QT_CONFIG(tooltip)
+        self.pushButton_ImportJSON_tabTAF.setText(QCoreApplication.translate("MainWindow", u"Import settings\n"
+"and results", None))
         self.checkBox_showThermalDrift_tab_inclusive_frame_stiffness_tabTAF.setText(QCoreApplication.translate("MainWindow", u"show thermal drift", None))
         self.checkBox_showFindSurface_tab_inclusive_frame_stiffness_tabTAF.setText(QCoreApplication.translate("MainWindow", u"show find surface", None))
         self.checkBox_iLHU_inclusive_frame_stiffness_tabTAF.setText(QCoreApplication.translate("MainWindow", u"show the Indentification of Loading-Holding-UnladingStart-UnladingEnd", None))
@@ -8510,6 +8529,10 @@ class Ui_MainWindow(object):
         self.groupBox_65.setTitle(QCoreApplication.translate("MainWindow", u"Options for Big Data", None))
         self.label_161.setText(QCoreApplication.translate("MainWindow", u"1 / N Sampling (only for Plot)", None))
         self.Calculate_tabHE.setText(QCoreApplication.translate("MainWindow", u"Calculate Hardness and Modulus", None))
+#if QT_CONFIG(tooltip)
+        self.pushButton_Export_tabHE.setToolTip(QCoreApplication.translate("MainWindow", u"Open the export dialog for the hardness and modulus results (Excel or NeXus HDF5)", None))
+#endif // QT_CONFIG(tooltip)
+        self.pushButton_Export_tabHE.setText(QCoreApplication.translate("MainWindow", u"Export Results", None))
 #if QT_CONFIG(tooltip)
         self.pushButton_plot_chosen_test_tab_inclusive_frame_stiffness_tabHE.setToolTip(QCoreApplication.translate("MainWindow", u"How to highlight test(s)? see Q1 in Document from Help", None))
 #endif // QT_CONFIG(tooltip)

@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QTableWidgetItem,QComboBox # pylint: disable=no-name-in-module
 from PySide6.QtGui import QColor # pylint: disable=no-name-in-module
 from .Classification import colors_clustering
+from .Tools_for_GUI.gui_actions import allFiles
 class data4save:
   """ class used for saving all things in a file and reloading """
 
@@ -381,6 +382,8 @@ def LOAD(self, win):
       pass
     else:
       reload_data_in_one_Tab(win=win,Tab=Tab, tabName=tabName)
+  # the loaded files of the frame stiffness calibration are not copied to tabHE (see copyNewFiles_tabHE)
+  win.files_tabHE_FrameStiffness = allFiles(win.ui.tableWidget_path_tabHE_FrameStiffness)
   # close the file
   file.close()
   if len(FilePath) <70:

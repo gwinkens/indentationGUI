@@ -211,6 +211,8 @@ def refreshTestList(theTableWidget):
   from ..Tools4LoadingData import read_file_list #pylint: disable=import-outside-toplevel
   mainWindow = theTableWidget.window()
   tabName = theTableWidget.objectName().removeprefix('tableWidget_path_')
+  if tabName == 'tabHE_FrameStiffness' and hasattr(mainWindow.ui, 'tableWidget_path_tabHE'):
+    copyNewFiles_tabHE(mainWindow, theTableWidget)
   testTable = getattr(mainWindow.ui, f"tableWidget_{tabName}", None)
   if tabName == theTableWidget.objectName() or tabName == 'tabClassification' or testTable is None:
     return #not a file list of the main window or no test list of this kind
@@ -256,6 +258,50 @@ def readFileSummary(fileName):
   if len(testList) == 0:
     return False, f"No tests found in {name}.", suggestion
   return True, f"{name}: {len(testList)} tests ({testList[0]} … {testList[-1]})", ''
+
+def allFiles(tableWidget):
+  """
+  all files of a file list, checked or not
+
+  Args:
+    tableWidget (QTableWidget): file list
+
+  Returns:
+    list: paths of the files
+  """
+  return [tableWidget.item(k, 0).text() for k in range(tableWidget.rowCount())
+          if tableWidget.item(k, 0) is not None and tableWidget.item(k, 0).text()]
+
+def copyNewFiles_tabHE(mainWindow, theTableWidget):
+  """
+  files added to the frame stiffness calibration of tabHE are also added to the hardness and modulus calculation;
+  a changed file is replaced there as well, deleted files are kept.
+  mainWindow.files_tabHE_FrameStiffness holds the files of the last call (set at start and when a session is loaded)
+
+  Args:
+    mainWindow (class): MainWindow
+    theTableWidget (QTableWidget): tableWidget_path_tabHE_FrameStiffness
+  """
+  newFiles = allFiles(theTableWidget)
+  oldFiles = getattr(mainWindow, 'files_tabHE_FrameStiffness', newFiles)
+  mainWindow.files_tabHE_FrameStiffness = newFiles
+  added = [file for file in newFiles if file not in oldFiles]
+  removed = [file for file in oldFiles if file not in newFiles]
+  targetTable = mainWindow.ui.tableWidget_path_tabHE
+  targetFiles = allFiles(targetTable)
+  added = [file for file in added if file not in targetFiles]
+  if not added:
+    return
+  if len(added) == 1 and len(removed) == 1 and removed[0] in targetFiles: #"change" of a file
+    rows = [targetFiles.index(removed[0])]
+  else:
+    rows = list(range(len(targetFiles), len(targetFiles)+len(added)))
+    targetTable.setRowCount(len(targetFiles)+len(added))
+  for row, file in zip(rows, added):
+    sourceItem = theTableWidget.findItems(file, Qt.MatchExactly)[0]
+    targetTable.setItem(row, 0, sourceItem.clone())
+    targetTable.setVerticalHeaderItem(row, QTableWidgetItem(f"Path{int(row+1)}"))
+  refreshTestList(targetTable)
 
 def checkFile(self, theItem):
   """

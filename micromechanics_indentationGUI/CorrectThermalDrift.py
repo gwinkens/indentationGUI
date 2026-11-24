@@ -6,6 +6,8 @@ from scipy.ndimage import gaussian_filter1d, binary_closing, binary_opening
 from scipy.optimize import fsolve, root_scalar
 from micromechanics.indentation.definitions import Method
 
+TESTS_WITHOUT_PRE_DRIFT = set()  # tests without holding segment before loading, reported and cleared by MainWindow.close_wait
+
 def robust_outlier_mask(S, win1, k=4.0, eps=None): #pylint:disable=missing-param-doc
   """
   Detect local outliers using a rolling median and MAD-based threshold.
@@ -467,8 +469,12 @@ def identify_PreDrift(indentation0):
   # Lengths of runs
   time_lengths = np.diff(indentation.t[idx])
   # Start and End index of the first holding for more than 30 s
-  Start = idx[:-1][idx[np.where(time_lengths>30)][0]]
-  End = idx[1:][idx[np.where(time_lengths>30)][0]]  # end index (exclusive)
+  longHolds = np.where(time_lengths>30)[0]
+  if len(longHolds) == 0:
+    indentation0.iPreDrift=[0,0]
+    return False
+  Start = idx[:-1][idx[longHolds][0]]
+  End = idx[1:][idx[longHolds][0]]  # end index (exclusive)
   # pass the iPreDrift back to the global variable indentation0
   indentation0.iPreDrift=[Start,End]
   return True
@@ -588,9 +594,12 @@ def correctThermalDrift(indentation,ax=False,ax2=False,reFindSurface=False, corr
         ax.plot(x_new,y_new*1000,'tab:green', label=f"slope of this is the determined thermal drift: {Drift_post*1000:.3E} nm/s")
         ax.set_xlabel('time [s]')
         ax.set_ylabel('depth [nm]')
+  preDriftFound = True
   if correctDrift in [2,3,4]:
     #calculate post thermal drift
-    identify_PreDrift(indentation)
+    preDriftFound = identify_PreDrift(indentation)
+    if not preDriftFound: # no correction with the pre indentation data (Drift_pre = 0), reported by the GUI
+      TESTS_WITHOUT_PRE_DRIFT.add(indentation.testName)
     Drift_Start=indentation.iPreDrift[0]
     Drift_End=indentation.iPreDrift[1]
     print('indentation.iPreDrift',indentation.iPreDrift)
@@ -617,7 +626,7 @@ def correctThermalDrift(indentation,ax=False,ax2=False,reFindSurface=False, corr
     correctThermalDrift_useFunction(indentation)
     return Drift,Drift_pre,Drift_post
   elif correctDrift == 3:
-    Drift = (Drift_pre + Drift_post)/2.
+    Drift = (Drift_pre + Drift_post)/2. if preDriftFound else Drift_post
   elif correctDrift == 1:
     Drift = Drift_post
   elif correctDrift == 2:
